@@ -14,7 +14,7 @@ jobs:
   prepare:
     if: github.repository == 'Sadkikyo0930/little-racing-v2-test'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 130
     steps:
       - name: Require exact R4 commit and successful source test job
         uses: actions/github-script@v7
@@ -23,7 +23,7 @@ jobs:
             const owner = 'Sadkikyo0930';
             const repo = 'little-racing-v2';
             const run_id = 42381160483;
-            for (let attempt = 0; attempt < 120; attempt++) {
+            for (let attempt = 0; attempt < 360; attempt++) {
               const {data: run} = await github.rest.actions.getWorkflowRun({owner, repo, run_id});
               if (run.head_sha !== '965f0445b1fe036cbfe251a9887bc98da0ad5a80' || run.head_branch !== 'develop' || run.event !== 'push') throw new Error('Source identity mismatch');
               const {data} = await github.rest.actions.listJobsForWorkflowRun({owner, repo, run_id});
