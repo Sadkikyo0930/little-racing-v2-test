@@ -22,10 +22,10 @@ jobs:
           script: |
             const owner = 'Sadkikyo0930';
             const repo = 'little-racing-v2';
-            const run_id = 42381160483;
+            const run_id = 42386914798;
             for (let attempt = 0; attempt < 360; attempt++) {
               const {data: run} = await github.rest.actions.getWorkflowRun({owner, repo, run_id});
-              if (run.head_sha !== '965f0445b1fe036cbfe251a9887bc98da0ad5a80' || run.head_branch !== 'develop' || run.event !== 'push') throw new Error('Source identity mismatch');
+              if (run.head_sha !== 'bfab89e057321f9be8045e5fe11f678f19ffefe3' || run.head_branch !== 'develop' || run.event !== 'push') throw new Error('Source identity mismatch');
               const {data} = await github.rest.actions.listJobsForWorkflowRun({owner, repo, run_id});
               const test = data.jobs.find(job => job.name === 'test');
               if (test?.status === 'completed') {
@@ -42,7 +42,7 @@ jobs:
           name: preview-dist
           path: preview-dist
           repository: Sadkikyo0930/little-racing-v2
-          run-id: 42381160483
+          run-id: 42386914798
           github-token: ${{ github.token }}
       - name: Verify isolated entry path
         run: |
