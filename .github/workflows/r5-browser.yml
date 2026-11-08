@@ -1,0 +1,22 @@
+name: R5 deployed browser acceptance
+on:
+  push:
+    branches: [validation/r5-20261108]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --ignore-scripts --prefix validation
+      - run: node validation/r5-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r5-browser-acceptance
+          path: r5-browser-results.json
