@@ -4,10 +4,10 @@
  * 必须在游戏主模块之前执行（见 r5/apply-patch.mjs）。
  * 首屏是**同步**判断：没有有效过闸凭证就立刻退回入口页，游戏模块不会有机会跑起来。
  */
-import { createR5Gate, R5Session } from './r5-online.mjs?v=1.6.3';
-import { R5_CONFIG, learnUrl } from './config.mjs';
+import { createR5Gate, R5Session } from './r5-online.mjs?v=selftest1';
+import { R5_CONFIG, learnUrl } from './config.mjs?v=selftest1';
 import { entryUrl } from './paths.mjs';
-import { getDevice, readGrant, refreshGrant } from './grant.mjs';
+import { getDevice, readGrant, refreshGrant } from './grant.mjs?v=selftest1';
 import { createGuard } from './guard-core.mjs?v=1.6.3';
 
 const device = getDevice();

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
+<head><script src="./isolation.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0a1c33" />
@@ -115,10 +115,10 @@
 </main>
 
 <script type="module">
-import { createR5Gate, messageFor, formatClock, R5Error } from './r5/r5-online.mjs';
-import { R5_CONFIG, learnUrl } from './r5/config.mjs';
+import { createR5Gate, messageFor, formatClock, R5Error } from './r5/r5-online.mjs?v=selftest1';
+import { R5_CONFIG, learnUrl } from './r5/config.mjs?v=selftest1';
 import { gameUrl } from './r5/paths.mjs';
-import { captureDeviceFromUrl, getDevice, issueGrant, clearGrant } from './r5/grant.mjs';
+import { captureDeviceFromUrl, getDevice, issueGrant, clearGrant } from './r5/grant.mjs?v=selftest1';
 
 const $ = (id) => document.getElementById(id);
 const states = ['st-checking', 'st-pass', 'st-lock', 'st-timeup', 'st-nodevice', 'st-error'];

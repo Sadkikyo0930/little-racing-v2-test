@@ -6,7 +6,7 @@
  */
 
 export const R5_DEFAULT_BASE = 'https://normal-goose-d5g4qyzr8bb389a4a.service.tcloudbase.com/r5';
-export const R5_DEFAULT_FAMILY = 'little-growth-family-001';
+export const R5_DEFAULT_FAMILY = 'r5-selftest-family';
 
 /** 业务原因 → 给孩子看的话（5 岁，短句、不吓人） */
 export const R5_MESSAGES = {

@@ -14,7 +14,7 @@ const GRANT_KEY = 'r5.grant';
 /** 从 URL 的 ?d= 读设备令牌（家长给孩子的链接），并落到 localStorage */
 export function captureDeviceFromUrl(search = location.search) {
   const fromQuery = new URLSearchParams(search).get('d');
-  if (fromQuery && /^[A-Za-z0-9_-]{8,80}$/.test(fromQuery)) {
+  if (fromQuery && fromQuery !== 'r5-demo-device-0001' && /^[A-Za-z0-9_-]{8,80}$/.test(fromQuery)) {
     try { localStorage.setItem(DEVICE_KEY, fromQuery); } catch { /* 隐私模式：仅本次有效 */ }
     return fromQuery;
   }
@@ -24,7 +24,7 @@ export function captureDeviceFromUrl(search = location.search) {
 export function getDevice() {
   try {
     const v = localStorage.getItem(DEVICE_KEY);
-    return v && /^[A-Za-z0-9_-]{8,80}$/.test(v) ? v : '';
+    return v && v !== 'r5-demo-device-0001' && /^[A-Za-z0-9_-]{8,80}$/.test(v) ? v : '';
   } catch {
     return '';
   }
