@@ -7,10 +7,10 @@
 export const R5_CONFIG = {
   // CloudBase 云函数（第三阶段已部署并通过 32/32 验收）
   base: 'https://normal-goose-d5g4qyzr8bb389a4a.service.tcloudbase.com/r5',
-  familyId: 'little-growth-family-001',
+  familyId: 'r5-selftest-family',
 
   // 未完成学习时「返回 V6 学习平台」的入口
-  learnUrl: 'https://sadkikyo0930.github.io/little-growth-workbench/v6/',
+  learnUrl: 'https://sadkikyo0930.github.io/little-growth-workbench/v6-selftest/',
 
   // 游戏构建产物目录（相对站点根）
   gamePath: 'dist-preview/index.html',
@@ -43,6 +43,5 @@ export function gameUrl() {
 
 /** 学习平台地址（每次打开时可被 ?learn= 覆盖） */
 export function learnUrl() {
-  const q = new URLSearchParams(location.search).get('learn');
-  return q ? q : R5_CONFIG.learnUrl;
+  return R5_CONFIG.learnUrl;
 }

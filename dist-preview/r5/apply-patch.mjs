@@ -28,7 +28,7 @@ const opt = (n, d) => {
 
 const file = path.resolve(opt('--file', path.join(REPO, 'dist-preview', 'index.html')));
 const MARK = '<!-- r5-guard -->';
-const TAG = `<script type="module" src="./r5/race-guard.mjs?v=1.6.3"></script>${MARK}`;
+const TAG = `<script type="module" src="./r5/race-guard.mjs?v=selftest1"></script>${MARK}`;
 
 if (!fs.existsSync(file)) {
   console.error(`[r5] 找不到 ${file}`);
