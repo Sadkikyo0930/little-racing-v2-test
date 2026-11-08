@@ -28,7 +28,7 @@ const opt = (n, d) => {
 
 const file = path.resolve(opt('--file', path.join(REPO, 'dist-preview', 'index.html')));
 const MARK = '<!-- r5-guard -->';
-const TAG = `<script type="module" src="./r5/race-guard.mjs"></script>${MARK}`;
+const TAG = `<script type="module" src="./r5/race-guard.mjs?v=1.6.3"></script>${MARK}`;
 
 if (!fs.existsSync(file)) {
   console.error(`[r5] 找不到 ${file}`);
@@ -37,6 +37,7 @@ if (!fs.existsSync(file)) {
 
 const before = fs.readFileSync(file, 'utf8');
 const has = before.includes(MARK);
+const oldTag = before.match(/<script type="module" src="\.\/r5\/race-guard\.mjs(?:\?[^"]*)?"><\/script><!-- r5-guard -->/)?.[0];
 
 if (flag('--check')) {
   console.log(has ? 'PATCHED' : 'UNPATCHED');
@@ -46,15 +47,17 @@ if (flag('--check')) {
 if (flag('--revert')) {
   if (!has) { console.log('[r5] 未注入，无需还原'); process.exit(0); }
   // 注入时写的是 TAG + "\n    " + 原 script，这里按同样的字面量精确还原
-  const reverted = before.includes(`${TAG}\n    `)
-    ? before.split(`${TAG}\n    `).join('')
-    : before.replace(TAG, '');
+  const reverted = before.includes(`${oldTag}\n    `)
+    ? before.split(`${oldTag}\n    `).join('')
+    : before.replace(oldTag, '');
   fs.writeFileSync(file, reverted);
   console.log('[r5] 已还原', path.relative(REPO, file));
   process.exit(0);
 }
 
 if (has) {
+  if (!oldTag) throw new Error('Unknown R5 guard tag');
+  if (oldTag !== TAG) fs.writeFileSync(file, before.replace(oldTag, TAG));
   console.log('[r5] 已经注入过，跳过（幂等）');
   process.exit(0);
 }

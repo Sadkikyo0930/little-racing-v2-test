@@ -4,11 +4,11 @@
  * 必须在游戏主模块之前执行（见 r5/apply-patch.mjs）。
  * 首屏是**同步**判断：没有有效过闸凭证就立刻退回入口页，游戏模块不会有机会跑起来。
  */
-import { createR5Gate, R5Session } from './r5-online.mjs';
+import { createR5Gate, R5Session } from './r5-online.mjs?v=1.6.3';
 import { R5_CONFIG, learnUrl } from './config.mjs';
 import { entryUrl } from './paths.mjs';
 import { getDevice, readGrant, refreshGrant } from './grant.mjs';
-import { createGuard } from './guard-core.mjs';
+import { createGuard } from './guard-core.mjs?v=1.6.3';
 
 const device = getDevice();
 const grant = readGrant(device);
@@ -53,6 +53,10 @@ document.addEventListener('click', (ev) => {
 
 // 退出（页面隐藏 / 关闭）：停止计时，不把后台时间算进 30 分钟
 window.addEventListener('pagehide', () => { session.end('pagehide'); });
+
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) guard.boot();
+});
 
 window.__R5_GUARD__ = guard;
 

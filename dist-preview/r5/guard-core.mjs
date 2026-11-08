@@ -223,12 +223,45 @@ export function createGuard(opts) {
     return () => clearInterval(timer);
   }
 
+  if (session) {
+    const handlers = {
+      onUpdate(s) {
+        state.last = s;
+        setClock(s.remaining_seconds);
+        state.failures = 0;
+        if (opts.onGrantRefresh && s.allowed) opts.onGrantRefresh(s.remaining_seconds);
+        if (opts.onUpdate) opts.onUpdate(s);
+        if (Number(s.remaining_seconds) <= 0) expire();
+        else if (!s.allowed && state.phase !== 'boot') {
+          state.phase = 'blocked';
+          lockDown('net', s.reason);
+        }
+      },
+      onError() {
+        state.failures += 1;
+        if (session.active === false || state.failures >= 3) {
+          state.phase = 'blocked';
+          blockEntries(true);
+          if (isInRace(doc)) banner('网络不太好，跑完这一场就休息一下吧');
+          else lockDown('net', 'R5_NETWORK');
+          if (session.active && session.end) session.end('NETWORK');
+        }
+      },
+      onEnded(s) {
+        if (!s || Number(s.remaining_seconds) <= 0) expire();
+        else { state.phase = 'blocked'; lockDown('net', s.reason); }
+      },
+    };
+    if (typeof session.setHandlers === 'function') session.setHandlers(handlers);
+    else for (const [name, handler] of Object.entries(handlers)) session[name](handler);
+  }
+
   async function boot() {
     state.phase = 'boot';
     veil('<div class="spin"></div><h2>正在确认学习资格…</h2><p>只要一秒，马上就好～</p>', []);
     let st;
     try {
-      st = await gate.start();
+      st = await (session && typeof session.begin === 'function' ? session.begin() : gate.start());
     } catch (e) {
       state.phase = 'blocked';
       lockDown('net', e && e.code);
@@ -248,29 +281,13 @@ export function createGuard(opts) {
       return { ok: false, reason };
     }
     removeVeil();
+    state.expired = false;
+    state.failures = 0;
+    blockEntries(false);
     state.phase = 'playing';
     hud();
     setClock(st.remaining_seconds);
     watchRace();
-    if (session) {
-      session.onUpdate((s) => {
-        state.last = s;
-        setClock(s.remaining_seconds);
-        state.failures = 0;
-        if (opts.onGrantRefresh) opts.onGrantRefresh(s.remaining_seconds);
-        if (opts.onUpdate) opts.onUpdate(s);
-        if (Number(s.remaining_seconds) <= 0) expire();
-      });
-      session.onError(() => {
-        state.failures += 1;
-        if (state.failures >= 3) {
-          state.phase = 'blocked';
-          if (isInRace(doc)) { blockEntries(true); banner('网络不太好，跑完这一场就休息一下吧'); }
-          else lockDown('net', 'R5_NETWORK');
-        }
-      });
-      session.onEnded(() => expire());
-    }
     return { ok: true, status: st };
   }
 

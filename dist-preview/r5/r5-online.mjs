@@ -99,7 +99,19 @@ export class R5Session {
     this.active = false;
     this.state = null;
     this._timer = null;
+    this.document = handlers.document || (typeof document !== 'undefined' ? document : null);
+    this._visibilityPaused = false;
+    this._visibilityChain = Promise.resolve();
+    this._pendingStop = null;
+    this._epoch = 0;
     this._visBound = this._onVisibility.bind(this);
+  }
+
+  setHandlers(handlers = {}) {
+    for (const name of ['onUpdate', 'onEnded', 'onPaused', 'onError']) {
+      if (typeof handlers[name] === 'function') this[name] = handlers[name];
+    }
+    return this;
   }
 
   _emit(st) { this.state = st; this.onUpdate(st); }
@@ -111,29 +123,41 @@ export class R5Session {
   }
 
   async begin() {
+    if (this._pendingStop) await this._pendingStop;
     const st = await this.gate.start();
     this._emit(st);
     if (!st.allowed) {
       this.active = false;
+      this._visibilityPaused = false;
       if (st.reason === 'TIME_LIMIT_REACHED') this.onEnded(st);
       return st;
     }
     this.active = true;
+    this._visibilityPaused = false;
+    this._epoch += 1;
     this._schedule();
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', this._visBound);
+    if (this.document) {
+      this.document.addEventListener('visibilitychange', this._visBound);
+      if (this.document.visibilityState === 'hidden') {
+        const paused = await this.end('PAUSED');
+        this.onPaused(paused);
+        return paused;
+      }
     }
     return st;
   }
 
   async beat() {
     if (!this.active) return this.state;
+    const epoch = this._epoch;
     try {
       const st = await this.gate.tick();
+      if (!this.active || epoch !== this._epoch) return this.state;
       this._emit(st);
-      if (!st.active || Number(st.remaining_seconds) <= 0) {
-        await this.end('TIME_LIMIT_REACHED');
-        this.onEnded(st);
+      if (!st.allowed || !st.active || Number(st.remaining_seconds) <= 0) {
+        const reason = Number(st.remaining_seconds) <= 0 ? 'TIME_LIMIT_REACHED' : (st.reason || 'STOPPED');
+        await this.end(reason);
+        if (reason !== 'TIME_LIMIT_REACHED') this.onEnded(st);
       }
       return st;
     } catch (e) {
@@ -143,38 +167,52 @@ export class R5Session {
   }
 
   async end(reason) {
-    if (!this.active && this.state && this.state.active === false) return this.state;
+    this._visibilityPaused = reason === 'PAUSED';
     this.active = false;
+    this._epoch += 1;
     clearInterval(this._timer);
     this._timer = null;
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this._visBound);
+    if (this.document && reason !== 'PAUSED') {
+      this.document.removeEventListener('visibilitychange', this._visBound);
     }
-    try {
-      const st = await this.gate.stop();
-      this._emit(st);
-      if (reason === 'TIME_LIMIT_REACHED') this.onEnded(st);
-      return st;
-    } catch (e) {
-      this.onError(e);
-      return this.state;
-    }
+    if (this._pendingStop) return this._pendingStop;
+    if (this.state && this.state.active === false) return this.state;
+    this._pendingStop = (async () => {
+      try {
+        const st = await this.gate.stop();
+        this._emit(st);
+        if (reason === 'TIME_LIMIT_REACHED') this.onEnded(st);
+        return st;
+      } catch (e) {
+        this.onError(e);
+        return this.state;
+      } finally { this._pendingStop = null; }
+    })();
+    return this._pendingStop;
   }
 
   async _onVisibility() {
-    if (typeof document === 'undefined') return;
-    if (document.visibilityState === 'hidden' && this.active) {
-      const st = await this.end('PAUSED');
-      this.onPaused(st);
-    }
+    if (!this.document) return;
+    const hidden = this.document.visibilityState === 'hidden';
+    this._visibilityChain = this._visibilityChain.catch(() => {}).then(async () => {
+      if (hidden && this.active) {
+        const st = await this.end('PAUSED');
+        this.onPaused(st);
+      } else if (!hidden && this._visibilityPaused) {
+        this._visibilityPaused = false;
+        try { await this.begin(); } catch (e) { this.onError(e); }
+      }
+    });
+    return this._visibilityChain;
   }
 
   destroy() {
     clearInterval(this._timer);
     this._timer = null;
     this.active = false;
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this._visBound);
+    this._visibilityPaused = false;
+    if (this.document) {
+      this.document.removeEventListener('visibilitychange', this._visBound);
     }
   }
 }
