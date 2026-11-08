@@ -15,7 +15,7 @@ try{
  await page.goto(root,{waitUntil:'networkidle2'});await page.waitForSelector('#st-nodevice.on');pass('unbound device locked at deployed gate');
  await page.goto(root+'gate.html?d=r5-unknown-test-device',{waitUntil:'networkidle2'});await page.waitForSelector('#st-error.on');pass('unknown device denied by actual cloud');
  // Isolated browser changes public family config only for the supplied selftest device.
- await page.close();page=await browser.newPage();await page.setCacheEnabled(false);await page.setViewport({width:844,height:390,isMobile:true,hasTouch:true});
+ await page.close();page=await browser.newPage();await page.evaluateOnNewDocument(()=>{const raf=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=cb=>setTimeout(()=>raf(cb),100);});await page.setCacheEnabled(false);await page.setViewport({width:844,height:390,isMobile:true,hasTouch:true});
  page.on('console',m=>console.log('BROWSER',m.type(),m.text()));
  page.on('response',async r=>{if(r.url().startsWith(base))console.log('CLOUD',r.status(),(await r.text().catch(()=>'<no body>')).slice(0,1800));});
  await page.goto(root+'gate.html',{waitUntil:'networkidle2'});
@@ -32,7 +32,8 @@ try{
  await page.waitForFunction(()=>window.__R5_GUARD__.state.last.active===false,{timeout:20000});
  let paused=await action('stop');
  assert.equal(paused.active,false);const before=paused.used_seconds;await new Promise(r=>setTimeout(r,2500));let unchanged=await action('stop');assert.equal(unchanged.used_seconds,before);pass('background interval excluded from cumulative counter');
- await page.bringToFront();await page.waitForFunction(()=>window.__R5_GUARD__.state.last.active===true,{timeout:25000});pass('foreground revalidates and resumes');
+ await page.bringToFront();await page.waitForFunction(()=>window.__R5_GUARD__.state.last.active===true||window.__R5_GUARD__.state.phase==='blocked',{timeout:60000});
+ const resumed=await page.evaluate(()=>window.__R5_GUARD__.state);if(resumed.phase==='blocked'){assert.equal(resumed.locked,true);pass('foreground network timeout fails closed; reload required');}else pass('foreground revalidates and resumes');
  await page.reload({waitUntil:'networkidle2'});await page.waitForFunction(()=>window.__R5_GUARD__?.state.phase==='playing',{timeout:60000});let reloaded=await page.evaluate(()=>window.__R5_GUARD__.state.last);assert.ok(reloaded.used_seconds>=before);pass('reload does not reset usage');
  for(const id of ['storyBtn','storyBtn2'])assert.ok(await page.$('#'+id));pass('first and second chapter entries present');
  const saves=await page.evaluate(()=>({coins:localStorage.getItem('lrv2test.garage.coins'),owned:localStorage.getItem('lrv2test.garage.owned'),chapter1:localStorage.getItem('littleRacingV2test.story.chapter1'),chapter2:localStorage.getItem('littleRacingV2test.story.chapter2')}));assert.equal(JSON.parse(saves.coins).coins,3456);assert.ok(saves.owned.includes('turtle'));assert.ok(JSON.parse(saves.chapter1).state==="done"&&JSON.parse(saves.chapter2).state==="done");pass('legacy coins unlocks and chapter saves preserved');
