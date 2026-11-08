@@ -15,9 +15,13 @@ try{
  await page.goto(root,{waitUntil:'networkidle2'});await page.waitForSelector('#st-nodevice.on');pass('unbound device locked at deployed gate');
  await page.goto(root+'gate.html?d=r5-unknown-test-device',{waitUntil:'networkidle2'});await page.waitForSelector('#st-error.on');pass('unknown device denied by actual cloud');
  // Isolated browser changes public family config only for the supplied selftest device.
+ await page.close();page=await browser.newPage();await page.setCacheEnabled(false);await page.setViewport({width:844,height:390,isMobile:true,hasTouch:true});
+ page.on('console',m=>console.log('BROWSER',m.type(),m.text()));
+ page.on('response',async r=>{if(r.url().startsWith(base))console.log('CLOUD',r.status(),(await r.text()).slice(0,1800));});
+ await page.goto(root+'gate.html',{waitUntil:'networkidle2'});
  await page.setRequestInterception(true);
- page.on('request',async req=>{if(new URL(req.url()).pathname.endsWith('/r5/config.mjs')){const text=await(await fetch(req.url())).text();await req.respond({status:200,contentType:'text/javascript',body:text.replace("familyId: 'little-growth-family-001'","familyId: 'r5-selftest-family'")});}else await req.continue();});
- await page.evaluate(()=>{localStorage.setItem('lrv2test.garage.coins','3456');localStorage.setItem('lrv2test.garage.owned',JSON.stringify(['red','turtle','moto']));localStorage.setItem('lrv2test.garage.current','moto');localStorage.setItem('littleRacingV2test.story.chapter1',JSON.stringify({completed:true}));localStorage.setItem('littleRacingV2test.story.chapter2',JSON.stringify({completed:true}));});
+ page.on('request',async req=>{if(new URL(req.url()).pathname.endsWith('/r5/config.mjs')){const text=await fs.readFile('dist-preview/r5/config.mjs','utf8');console.log('CONFIG selftest override');await req.respond({status:200,contentType:'text/javascript',body:text.replace("familyId: 'little-growth-family-001'","familyId: 'r5-selftest-family'")});}else await req.continue();});
+ await page.evaluate(()=>{localStorage.setItem('lrv2test.garage.coins',JSON.stringify({coins:3456,appliedRewards:[]}));localStorage.setItem('lrv2test.garage.owned',JSON.stringify({red:{unlocked:true},turtle:{unlocked:true},moto:{unlocked:true}}));localStorage.setItem('lrv2test.garage.current',JSON.stringify({vehicle:'moto'}));localStorage.setItem('littleRacingV2test.story.chapter1',JSON.stringify({state:"done",updatedAt:1}));localStorage.setItem('littleRacingV2test.story.chapter2',JSON.stringify({state:"done",updatedAt:1}));});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(root+'gate.html?d='+device,{waitUntil:'networkidle2'});
  await page.waitForFunction(()=>window.__R5_GUARD__?.state.phase==='playing',{timeout:60000});
@@ -31,11 +35,11 @@ try{
  await page.bringToFront();await page.waitForFunction(()=>window.__R5_GUARD__.state.last.active===true,{timeout:25000});pass('foreground revalidates and resumes');
  await page.reload({waitUntil:'networkidle2'});await page.waitForFunction(()=>window.__R5_GUARD__?.state.phase==='playing',{timeout:60000});let reloaded=await page.evaluate(()=>window.__R5_GUARD__.state.last);assert.ok(reloaded.used_seconds>=before);pass('reload does not reset usage');
  for(const id of ['storyBtn','storyBtn2'])assert.ok(await page.$('#'+id));pass('first and second chapter entries present');
- const saves=await page.evaluate(()=>({coins:localStorage.getItem('lrv2test.garage.coins'),owned:localStorage.getItem('lrv2test.garage.owned'),chapter1:localStorage.getItem('littleRacingV2test.story.chapter1'),chapter2:localStorage.getItem('littleRacingV2test.story.chapter2')}));assert.equal(saves.coins,'3456');assert.ok(saves.owned.includes('turtle'));assert.ok(JSON.parse(saves.chapter1).completed&&JSON.parse(saves.chapter2).completed);pass('legacy coins unlocks and chapter saves preserved');
+ const saves=await page.evaluate(()=>({coins:localStorage.getItem('lrv2test.garage.coins'),owned:localStorage.getItem('lrv2test.garage.owned'),chapter1:localStorage.getItem('littleRacingV2test.story.chapter1'),chapter2:localStorage.getItem('littleRacingV2test.story.chapter2')}));assert.equal(JSON.parse(saves.coins).coins,3456);assert.ok(saves.owned.includes('turtle'));assert.ok(JSON.parse(saves.chapter1).state==="done"&&JSON.parse(saves.chapter2).state==="done");pass('legacy coins unlocks and chapter saves preserved');
  const manifest=JSON.parse(await fs.readFile('preview-sha256.json','utf8'));const audio=Object.keys(manifest).filter(p=>p.endsWith('.mp3'));
  const audioResult=await page.evaluate(async urls=>{const ctx=new AudioContext();try{return await Promise.all(urls.map(async url=>{const r=await fetch(url);if(!r.ok)throw Error(url+':'+r.status);const b=await ctx.decodeAudioData(await r.arrayBuffer());if(!(b.duration>0))throw Error(url);return {url,duration:b.duration};}));}finally{await ctx.close();}},audio.map(p=>root+p));
  assert.equal(audio.filter(p=>/c2-/.test(p)).length,21);pass('all MP3 fetched and decoded including chapter2 21',{count:audioResult.length});
  assert.deepEqual(errors.filter(e=>!e.startsWith('R5_ENTRY_REDIRECT')),[]);pass('no unexpected game JavaScript exceptions');
  const v6=await browser.newPage();await v6.goto(learn,{waitUntil:'networkidle2'});await v6.waitForFunction(()=>!!window.R5Bridge,{timeout:30000});pass('deployed V6 bridge loads');
  await fs.writeFile('r5-browser-results.json',JSON.stringify({results,audio:audioResult,scope:'Isolated browser/selftest family, no real household grades or devices modified'},null,2));
-}finally{await action('stop').catch(()=>{});await browser.close();}
+}catch(e){console.log('DIAGNOSTIC',page?.url(),await page?.evaluate(()=>({text:document.body.innerText.slice(0,2200),guard:window.__R5_GUARD__?.state})).catch(()=>null));throw e;}finally{await action('stop').catch(()=>{});await fs.writeFile('r5-browser-partial.json',JSON.stringify(results,null,2));await browser.close();}
