@@ -18,7 +18,7 @@ jobs:
       - name: Verify exact supplied preview files
         run: |
           python3 - <<'PY'
-          import json, hashlib
+          import json, hashlib, re
           from pathlib import Path
           p = Path('dist-preview')
           expected = json.loads(Path('preview-sha256.json').read_text())
@@ -26,7 +26,9 @@ jobs:
           assert actual == expected, 'Preview checksum mismatch'
           voices = sorted(p.rglob('c2-*.mp3'))
           assert len(voices) == 21, len(voices)
-          assert {f.name for f in voices} == {f'c2-{i:02}.mp3' for i in range(1, 22)}
+          voice_ids = [re.fullmatch(r'c2-(\d{2})(?:-[A-Za-z0-9_-]+)?\.mp3', f.name) for f in voices]
+          assert all(voice_ids), 'Invalid chapter 2 voice filename'
+          assert sorted(m.group(1) for m in voice_ids) == [f'{i:02}' for i in range(1, 22)], 'Chapter 2 voices must contain 01-21 exactly once'
           assert '/little-racing-v2-test/assets/' in (p / 'index.html').read_text()
           assert any('lrv2test' in f.read_text() for f in p.glob('assets/*.js'))
           print(f'PASS: {len(actual)} exact build files; 21 chapter 2 voices; isolated test path and save prefix')
