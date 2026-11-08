@@ -17,7 +17,7 @@ try{
  // Isolated browser changes public family config only for the supplied selftest device.
  await page.close();page=await browser.newPage();await page.setCacheEnabled(false);await page.setViewport({width:844,height:390,isMobile:true,hasTouch:true});
  page.on('console',m=>console.log('BROWSER',m.type(),m.text()));
- page.on('response',async r=>{if(r.url().startsWith(base))console.log('CLOUD',r.status(),(await r.text()).slice(0,1800));});
+ page.on('response',async r=>{if(r.url().startsWith(base))console.log('CLOUD',r.status(),(await r.text().catch(()=>'<no body>')).slice(0,1800));});
  await page.goto(root+'gate.html',{waitUntil:'networkidle2'});
  await page.setRequestInterception(true);
  page.on('request',async req=>{if(new URL(req.url()).pathname.endsWith('/r5/config.mjs')){const text=await fs.readFile('dist-preview/r5/config.mjs','utf8');console.log('CONFIG selftest override');await req.respond({status:200,contentType:'text/javascript',body:text.replace("familyId: 'little-growth-family-001'","familyId: 'r5-selftest-family'")});}else await req.continue();});
