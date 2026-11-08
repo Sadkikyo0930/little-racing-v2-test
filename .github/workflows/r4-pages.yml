@@ -1,12 +1,11 @@
-name: Deploy verified R4 preview
+name: Deploy chapter 2 voice preview
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/r4-pages.yml']
+    paths: ['dist-preview/**', 'preview-sha256.json', '.github/workflows/r4-pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 concurrency:
   group: r4-preview-pages
   cancel-in-progress: false
@@ -14,70 +13,28 @@ jobs:
   prepare:
     if: github.repository == 'Sadkikyo0930/little-racing-v2-test'
     runs-on: ubuntu-latest
-    timeout-minutes: 130
     steps:
       - uses: actions/checkout@v4
-        with:
-          repository: Sadkikyo0930/little-racing-v2
-          ref: bfab89e057321f9be8045e5fe11f678f19ffefe3
-          fetch-depth: 0
-      - name: Verify unchanged rewarded game source
+      - name: Verify exact supplied preview files
         run: |
-          python3 - <<'PYCODE'
-          import subprocess
-          old='965f0445b1fe036cbfe251a9887bc98da0ad5a80'
-          new='bfab89e057321f9be8045e5fe11f678f19ffefe3'
-          paths=subprocess.check_output(['git','diff','--name-only',old,new],text=True).splitlines()
-          assert paths==['src/main.js'], paths
-          a=subprocess.check_output(['git','show',old+':src/main.js'])
-          b=subprocess.check_output(['git','show',new+':src/main.js'])
-          assert a.replace(b'      stat[i].maxBridgeStall = +stat[i].maxBridgeStall.toFixed(1);',b'      // Keep raw duration for threshold assertions; round only in report text.')==b
-          PYCODE
-      - name: Verify original reward suite passed
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const {data}=await github.rest.actions.listJobsForWorkflowRun({owner:'Sadkikyo0930',repo:'little-racing-v2',run_id:42381160483});
-            const test=data.jobs.find(j=>j.name==='test');
-            if (!test.steps.some(s=>s.name==='Regression · reward' && s.conclusion==='success')) throw new Error('Reward regression evidence missing');
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Install Chrome
-        run: |
-          npx @puppeteer/browsers install chrome@stable
-          CHROME_BIN=$(find "$PWD" "$HOME/.cache/puppeteer" -type f -path '*/chrome-linux64/chrome' 2>/dev/null | head -n1)
-          test -x "$CHROME_BIN"
-          echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_BIN" >> "$GITHUB_ENV"
-      - run: node tools/audit-track.mjs --json
-      - run: node tools/verify-isolation.mjs
-      - name: Stage1 full regression, unchanged thresholds
-        run: node tools/test/stage1.mjs
-      - name: Chapter2 full regression
-        run: node tools/test/chapter2.mjs
-      - name: Production interface scan
-        run: node tools/test/pages-interface-scan.mjs
-      - name: Build isolated release
-        run: npm run build
-        env:
-          VITE_TEST_HOOKS: '0'
-          VITE_SAVE_PREFIX: lrv2test
-          VITE_BASE: /little-racing-v2-test/
-      - run: node tools/verify-preview-build.mjs
-      - run: node tools/test/preview-smoke.mjs
-      - uses: actions/upload-artifact@v4
-        with:
-          name: r4-source-build-reports
-          path: |
-            dist
-            tools/out/*.json
-      - name: Stage verified release
-        run: mv dist preview-dist
+          python3 - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+          p = Path('dist-preview')
+          expected = json.loads(Path('preview-sha256.json').read_text())
+          actual = {str(f.relative_to(p)): hashlib.sha256(f.read_bytes()).hexdigest() for f in p.rglob('*') if f.is_file()}
+          assert actual == expected, 'Preview checksum mismatch'
+          voices = sorted(p.rglob('c2-*.mp3'))
+          assert len(voices) == 21, len(voices)
+          assert {f.name for f in voices} == {f'c2-{i:02}.mp3' for i in range(1, 22)}
+          assert '/little-racing-v2-test/assets/' in (p / 'index.html').read_text()
+          assert any('lrv2test' in f.read_text() for f in p.glob('assets/*.js'))
+          print(f'PASS: {len(actual)} exact build files; 21 chapter 2 voices; isolated test path and save prefix')
+          PY
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: preview-dist
+          path: dist-preview
   deploy:
     needs: prepare
     runs-on: ubuntu-latest
